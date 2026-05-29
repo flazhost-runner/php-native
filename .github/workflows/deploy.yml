@@ -1,0 +1,57 @@
+name: Build & Deploy to FlazHost
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      # Guard: skip kalau HARBOR secrets belum ter-set (race condition initial commit
+      # vs setupGithubActionsCD push secrets). Workflow SUCCESS dengan warning,
+      # tidak fail. Push berikutnya akan jalan normal setelah secrets ada.
+      - name: Check secrets configured
+        id: secrets_check
+        env:
+          HU: ${{ secrets.HARBOR_USERNAME }}
+          CS: ${{ secrets.CAPROVER_SERVER }}
+        run: |
+          if [ -z "$HU" ] || [ -z "$CS" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::FlazHost secrets belum ter-set. Build & deploy di-skip. Setelah admin Retry CD Setup atau Anda commit ulang, workflow akan jalan normal."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Set up Docker Buildx
+        if: steps.secrets_check.outputs.skip != 'true'
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to FlazHost Registry
+        if: steps.secrets_check.outputs.skip != 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: registry.flazhost.com
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+      - name: Build and push image
+        if: steps.secrets_check.outputs.skip != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          provenance: false
+          sbom: false
+          tags: |
+            registry.flazhost.com/${{ vars.HARBOR_PROJECT }}/${{ github.event.repository.name }}:${{ github.sha }}
+            registry.flazhost.com/${{ vars.HARBOR_PROJECT }}/${{ github.event.repository.name }}:latest
+      - name: Deploy to CapRover
+        if: steps.secrets_check.outputs.skip != 'true'
+        uses: caprover/deploy-from-github@v1.1.2
+        with:
+          server: ${{ secrets.CAPROVER_SERVER }}
+          app: ${{ vars.CAPROVER_APP }}
+          token: ${{ secrets.CAPROVER_APP_TOKEN }}
+          image: registry.flazhost.com/${{ vars.HARBOR_PROJECT }}/${{ github.event.repository.name }}:${{ github.sha }}

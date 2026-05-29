@@ -1,0 +1,20 @@
+# File yang TIDAK perlu masuk image — kecilkan size + hindari leak secrets.
+.git
+.github
+.gitignore
+.env
+.env.*
+!.env.example
+node_modules
+vendor/.cache
+*.log
+*.sql
+*.sqlite
+*.backup
+.DS_Store
+Thumbs.db
+.idea
+.vscode
+README.md
+LICENSE
+docker-compose*.yml
