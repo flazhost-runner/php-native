@@ -1,0 +1,9 @@
+{
+  "name": "PHP Native (Apache)",
+  "language": "php",
+  "install": [],
+  "migrate": [],
+  "start": "php -S localhost:8080",
+  "url": "http://localhost:8080",
+  "readyPath": "/"
+}
